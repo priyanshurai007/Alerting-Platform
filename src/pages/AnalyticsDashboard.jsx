@@ -3,55 +3,101 @@ import { api } from '../api';
 
 export default function AnalyticsDashboard() {
   const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   async function load() {
-    const res = await api.get('/analytics/metrics');
-    setData(res.data);
+    try {
+      setLoading(true);
+      const res = await api.get('/analytics/metrics');
+      setData(res.data);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching analytics:', err);
+      setError('Failed to load analytics data.');
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(()=>{ load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
-  if (!data) return <p>Loading metrics…</p>;
+  if (loading) return <p className="text-gray-500">Loading metrics…</p>;
+  if (error) return <p className="text-red-500">{error}</p>;
+  if (!data) return null;
 
   return (
-    <div>
+    <div className="p-4 space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-xl font-semibold">Analytics</h2>
-        <button className="btn-ghost" onClick={load}>Refresh</button>
+        <h2 className="text-2xl font-semibold">Analytics Dashboard</h2>
+        <button
+          className="px-4 py-2 text-white bg-blue-600 rounded hover:bg-blue-700"
+          onClick={load}
+        >
+          🔄 Refresh
+        </button>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-3">
-        <div className="card"><div className="label">Total Alerts</div><div className="text-2xl font-bold">{data.totalAlerts}</div></div>
-        <div className="card"><div className="label">Deliveries</div><div className="text-2xl font-bold">{data.deliveries}</div></div>
-        <div className="card"><div className="label">Reads</div><div className="text-2xl font-bold">{data.reads}</div></div>
+      {/* Summary Grid */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <MetricCard label="Total Alerts" value={data.totalAlerts} />
+        <MetricCard label="Deliveries" value={data.deliveries} />
+        <MetricCard label="Reads" value={data.reads} />
       </div>
 
-      <div className="card mt-3">
-        <h3 className="font-semibold mb-2">Severity Breakdown</h3>
-        <ul className="text-sm text-gray-700">
+      {/* Severity Breakdown */}
+      <SectionCard title="Severity Breakdown">
+        <ul className="ml-4 text-sm text-gray-700 list-disc">
           <li>Info: {data.severityBreakdown.Info}</li>
           <li>Warning: {data.severityBreakdown.Warning}</li>
           <li>Critical: {data.severityBreakdown.Critical}</li>
         </ul>
-      </div>
+      </SectionCard>
 
-      <div className="card mt-3">
-        <h3 className="font-semibold mb-2">Snoozed Counts (today) per Alert</h3>
+      {/* Snoozed Counts */}
+      <SectionCard title="Snoozed Counts (today)">
         {Object.keys(data.snoozedCounts).length === 0 ? (
           <p className="text-sm text-gray-600">No snoozes today.</p>
         ) : (
-          <ul className="text-sm text-gray-700">
+          <ul className="ml-4 text-sm text-gray-700 list-disc">
             {Object.entries(data.snoozedCounts).map(([id, cnt]) => (
-              <li key={id}><code>{id}</code>: {cnt}</li>
+              <li key={id}>
+                <code>{id}</code>: {cnt}
+              </li>
             ))}
           </ul>
         )}
-      </div>
+      </SectionCard>
 
-      <div className="card mt-3">
-        <h3 className="font-semibold mb-2">Status</h3>
-        <p className="text-sm text-gray-700">Active: {data.active} · Expired: {data.expired}</p>
-      </div>
+      {/* Status Section */}
+      <SectionCard title="System Status">
+        <p className="text-sm text-gray-700">
+          Active Alerts: <b>{data.active}</b> · Expired: <b>{data.expired}</b>
+        </p>
+      </SectionCard>
+    </div>
+  );
+}
+
+/* 🔹 Reusable Subcomponents */
+
+function MetricCard({ label, value }) {
+  return (
+    <div className="p-4 text-center bg-white border rounded-lg shadow-sm">
+      <div className="text-sm text-gray-500">{label}</div>
+      <div className="mt-1 text-3xl font-bold">{Number(value).toLocaleString()}</div>
+    </div>
+  );
+}
+
+function SectionCard({ title, children }) {
+  return (
+    <div className="p-4 bg-white border rounded-lg shadow-sm">
+      <h3 className="mb-2 font-semibold">{title}</h3>
+      {children}
     </div>
   );
 }
